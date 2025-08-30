@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
+interface NfcData {
+  type: 'text' | 'url' | 'tel' | 'sms' | 'app' | 'facebook' | 'zalo';
+  value: string;
+}
+
 interface NfcManagerProps {
   onRead: (data: string) => void;
   onStatusChange: (status: string) => void;
-  dataToWrite: string;
+  dataToWrite: NfcData | null;
   startReading: boolean;
   startWriting: boolean;
 }
@@ -27,9 +32,13 @@ const NfcManager: React.FC<NfcManagerProps> = ({
         for (const record of message.records) {
           if (record.recordType === 'text') {
             const textDecoder = new TextDecoder(record.encoding);
-            tagContent += textDecoder.decode(record.data) + '\n';
+            tagContent += textDecoder.decode(record.data) + '
+';
+          } else if (record.recordType === 'url') {
+            const urlDecoder = new TextDecoder();
+            tagContent += urlDecoder.decode(record.data) + '\n';
           }
-          // Add more record type handling as needed (e.g., URL)
+          // Add more record type handling as needed
         }
         onRead(tagContent.trim());
         onStatusChange('Tag read successfully!');
@@ -53,10 +62,31 @@ const NfcManager: React.FC<NfcManagerProps> = ({
   }, [ndefReader, startReading, onStatusChange]);
 
   useEffect(() => {
+    const createNdefRecord = (data: NfcData): NDEFRecordInit => {
+      switch (data.type) {
+        case 'url':
+          return { recordType: 'url', data: data.value };
+        case 'tel':
+          return { recordType: 'url', data: `tel:${data.value}` };
+        case 'sms':
+          return { recordType: 'url', data: `sms:${data.value}` };
+        case 'facebook':
+          return { recordType: 'url', data: `https://www.facebook.com/${data.value}` };
+        case 'zalo':
+          return { recordType: 'url', data: `https://zalo.me/${data.value}` };
+        case 'app':
+          // For Android Application Record (AAR)
+          return { recordType: 'android.com:pkg', data: data.value };
+        case 'text':
+        default:
+          return { recordType: 'text', data: data.value };
+      }
+    };
+
     if (ndefReader && startWriting && dataToWrite) {
       onStatusChange('Place an NFC tag near your device to write...');
       ndefReader.write({
-        records: [{ recordType: 'text', data: dataToWrite }],
+        records: [createNdefRecord(dataToWrite)],
       })
       .then(() => {
         onStatusChange('Data written successfully!');

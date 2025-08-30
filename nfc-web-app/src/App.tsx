@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, ListGroup } from 'react-bootstrap';
 import './App.css';
 import NfcManager from './components/NfcManager';
+import packageJson from '../package.json';
+import { NfcData } from './components/NfcManager'; // Import NfcData interface
 
 function App() {
   const [isWebNFCSupported, setIsWebNFCSupported] = useState(false);
   const [readTagContent, setReadTagContent] = useState<string>('No tag read yet.');
   const [nfcStatus, setNfcStatus] = useState<string>('Ready');
-  const [dataInput, setDataInput] = useState<string>('');
+  const [nfcRecords, setNfcRecords] = useState<NfcData[]>([]); // Array to hold multiple records
+  const [newRecordType, setNewRecordType] = useState<NfcData['type']>('text');
+  const [newRecordValue, setNewRecordValue] = useState<string>('');
   const [isReading, setIsReading] = useState<boolean>(false);
   const [isWriting, setIsWriting] = useState<boolean>(false);
 
@@ -40,11 +44,27 @@ function App() {
     setIsWriting(false); // Ensure writing is off
   };
 
-  const startNfcWriting = () => {
-    if (!dataInput) {
-      setNfcStatus('Please enter data to write.');
+  const addRecord = () => {
+    if (newRecordValue.trim() === '') {
+      setNfcStatus('Please enter a value for the new record.');
       return;
     }
+    setNfcRecords([...nfcRecords, { type: newRecordType, value: newRecordValue.trim() }]);
+    setNewRecordValue(''); // Clear input after adding
+    setNfcStatus('Record added. Click Start Writing to write to tag.');
+  };
+
+  const removeRecord = (index: number) => {
+    setNfcRecords(nfcRecords.filter((_, i) => i !== index));
+    setNfcStatus('Record removed.');
+  };
+
+  const startNfcWriting = () => {
+    if (nfcRecords.length === 0) {
+      setNfcStatus('Please add at least one record to write.');
+      return;
+    }
+
     setNfcStatus('Place an NFC tag near your device to write...');
     setIsWriting(true);
     setIsReading(false); // Ensure reading is off
@@ -105,20 +125,60 @@ function App() {
                 <Card>
                   <Card.Header as="h5">Write NFC Tag</Card.Header>
                   <Card.Body>
-                    <Card.Text>Enter data below and place an NFC tag near your device to write.</Card.Text>
+                    <Card.Text>Add multiple data fields to write to the NFC tag.</Card.Text>
+
                     <Form.Group className="mb-3">
-                      <Form.Label htmlFor="writeData">Data to Write:</Form.Label>
+                      <Form.Label htmlFor="newRecordType">New Record Type:</Form.Label>
+                      <Form.Select
+                        id="newRecordType"
+                        value={newRecordType}
+                        onChange={(e) => setNewRecordType(e.target.value as NfcData['type'])}
+                        disabled={isReading || isWriting}
+                      >
+                        <option value="text">Text</option>
+                        <option value="url">URL</option>
+                        <option value="tel">Phone Number</option>
+                        <option value="sms">SMS</option>
+                        <option value="facebook">Facebook Profile/Page</option>
+                        <option value="zalo">Zalo Profile/Page</option>
+                        <option value="app">Android App Package</option>
+                      </Form.Select>
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label htmlFor="newRecordValue">New Record Value:</Form.Label>
                       <Form.Control
                         as="textarea"
-                        rows={3}
-                        id="writeData"
-                        placeholder="Enter text to write"
-                        value={dataInput}
-                        onChange={(e) => setDataInput(e.target.value)}
+                        rows={1}
+                        id="newRecordValue"
+                        placeholder="Enter value for new record"
+                        value={newRecordValue}
+                        onChange={(e) => setNewRecordValue(e.target.value)}
                         disabled={isReading || isWriting}
                       />
                     </Form.Group>
-                    <Button variant="success" onClick={startNfcWriting} disabled={isReading || isWriting || !dataInput}>
+                    <Button variant="secondary" onClick={addRecord} disabled={isReading || isWriting || newRecordValue.trim() === ''}>
+                      Add Record
+                    </Button>
+
+                    <h6 className="mt-4">Records to Write:</h6>
+                    {nfcRecords.length === 0 ? (
+                      <p className="text-muted">No records added yet.</p>
+                    ) : (
+                      <ListGroup className="mb-3">
+                        {nfcRecords.map((record, index) => (
+                          <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
+                            <div>
+                              <strong>{record.type.toUpperCase()}:</strong> {record.value}
+                            </div>
+                            <Button variant="danger" size="sm" onClick={() => removeRecord(index)}>
+                              Remove
+                            </Button>
+                          </ListGroup.Item>
+                        ))}
+                      </ListGroup>
+                    )}
+
+                    <Button variant="success" onClick={startNfcWriting} disabled={isReading || isWriting || nfcRecords.length === 0}>
                       {isWriting ? 'Writing...' : 'Start Writing'}
                     </Button>
                   </Card.Body>
@@ -129,12 +189,13 @@ function App() {
             <NfcManager
               onRead={handleRead}
               onStatusChange={handleStatusChange}
-              dataToWrite={dataInput}
+              dataToWrite={nfcRecords}
               startReading={isReading}
               startWriting={isWriting}
             />
           </>
         )}
+        <p className="text-center mt-4 text-muted">Version: {packageJson.version}</p>
       </Container>
     </div>
   );
