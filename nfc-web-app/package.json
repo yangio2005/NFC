@@ -21,12 +21,11 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "BUILD_PATH=docs react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "build": "react-scripts build",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d docs"
+    "deploy": "gh-pages -d build"
   },
+
   "homepage": "https://yangio2005.github.io/NFC",
   "devDependencies": {
     "gh-pages": "^6.1.1"
